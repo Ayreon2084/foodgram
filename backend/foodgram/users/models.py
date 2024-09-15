@@ -35,14 +35,17 @@ class User(AbstractUser):
         max_length=LENGTH_150
     )
     avatar = models.ImageField(
+        verbose_name='Avatar',
         upload_to='users/',
         null=True,
         blank=True,
-        default='users/default_avatar.png',
-        verbose_name='Avatar'
     )
-    # # To be used for superuser creation
-    # REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = (
+        'username',
+        'first_name',
+        'last_name',
+    )
 
     class Meta:
         ordering = ('username',)
@@ -62,9 +65,9 @@ class FollowUser(models.Model):
     )
     user = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        verbose_name='Subscriber',
         related_name='follower',
-        verbose_name='Subscriber'
+        on_delete=models.CASCADE,
     )
 
     class Meta:
