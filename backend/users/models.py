@@ -1,4 +1,3 @@
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
@@ -7,6 +6,7 @@ from common.constants import LENGTH_150, LENGTH_254
 
 
 class User(AbstractUser):
+
     email = models.EmailField(
         verbose_name='Email',
         unique=True,
@@ -36,7 +36,7 @@ class User(AbstractUser):
     )
     avatar = models.ImageField(
         verbose_name='Avatar',
-        upload_to='users/',
+        # upload_to='users/',
         null=True,
         blank=True,
     )
@@ -52,7 +52,7 @@ class User(AbstractUser):
         verbose_name = 'user'
         verbose_name_plural = 'Users'
 
-    def __sta__(self):
+    def __str__(self):
         return f'User: {self.username}.'
 
 
