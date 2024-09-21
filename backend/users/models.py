@@ -75,7 +75,8 @@ class FollowUser(models.Model):
         verbose_name_plural = 'Follows'
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'author'], name='prevent_double_follow'
+                fields=('user', 'author',),
+                name='prevent_double_follow'
             ),
             models.CheckConstraint(
                 check=~models.Q(user=models.F('author')),
