@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
 
+from recipes.models import Ingredient, Tag
 from users.models import FollowUser
 
 User = get_user_model()
@@ -52,3 +53,17 @@ class AvatarSerializer(serializers.ModelSerializer):
             representation['avatar'] = avatar_url
             return representation
         return representation
+
+
+class IngredientSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Ingredient
+        fields = ('id', 'name', 'measurement_unit')
+
+
+class TagSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Tag
+        fields = ('id', 'name', 'slug',)

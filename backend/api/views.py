@@ -1,12 +1,19 @@
 from django.contrib.auth import get_user_model
+from django_filters.rest_framework import DjangoFilterBackend
 from djoser import views as djoser_views
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+from rest_framework.permissions import (
+    IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+)
 from rest_framework.response import Response
 
-from .serializers import AvatarSerializer, UserSerializer
+from recipes.models import Ingredient, Tag
+
+from .serializers import (
+    AvatarSerializer, IngredientSerializer, TagSerializer, UserSerializer
+)
 
 User = get_user_model()
 
@@ -54,5 +61,18 @@ class UserViewSet(djoser_views.UserViewSet):
             status=status.HTTP_204_NO_CONTENT
         )
 
-
     # @action follow
+
+
+class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = IngredientSerializer
+    pagination_class = None
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ('name',)
+
+
+class TagViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    pagination_class = None
