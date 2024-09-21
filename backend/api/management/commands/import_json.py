@@ -53,9 +53,7 @@ class Command(BaseCommand):
         
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully loaded {
-                        len(ingredients_to_add)
-                    } ingredients'
+                    f'Successfully loaded {len(ingredients_to_add)} ingredients'
                 )
             )
 
