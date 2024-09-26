@@ -1,18 +1,23 @@
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 from djoser import views as djoser_views
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (
-    IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+    IsAuthenticated, IsAuthenticatedOrReadOnly
 )
 from rest_framework.response import Response
 
-from recipes.models import Ingredient, Tag
+from users.models import FollowUser
+from recipes.models import Ingredient, Recipe, Tag
 
+from .filters import RecipeFilter
+from .permissions import IsAuthorOrReadOnly
 from .serializers import (
-    AvatarSerializer, IngredientSerializer, TagSerializer, UserSerializer
+    AvatarSerializer, IngredientSerializer, RecipeCreateSerializer,
+    RecipeDetailSerializer, TagSerializer, UserSerializer
 )
 
 User = get_user_model()
@@ -22,12 +27,10 @@ class UserViewSet(djoser_views.UserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
-    pagination_class = LimitOffsetPagination
+    http_method_names = ('get', 'post', 'put', 'delete',)
 
     def get_permissions(self):
-        if self.action == 'list':
-            return (AllowAny(),)
-        elif self.action == 'me':
+        if self.action == 'me':
             return (IsAuthenticated(),)
         return super().get_permissions()
 
@@ -35,7 +38,7 @@ class UserViewSet(djoser_views.UserViewSet):
         detail=False,
         url_path='me/avatar',
         permission_classes=[IsAuthenticated],
-        methods=['put']
+        methods=['put'],
     )
     def avatar(self, request):
         user = request.user
@@ -46,10 +49,9 @@ class UserViewSet(djoser_views.UserViewSet):
             context={'request': request}
         )
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status.HTTP_200_OK)
 
     @avatar.mapping.delete
     def delete_avatar(self, request):
@@ -61,7 +63,65 @@ class UserViewSet(djoser_views.UserViewSet):
             status=status.HTTP_204_NO_CONTENT
         )
 
-    # @action follow
+    @action(
+        detail=False,
+        url_path='subscriptions',
+        permission_classes=[IsAuthenticated]
+    )
+    def subscriptions(self, request):
+        followed_users = User.objects.filter(followed__user=request.user)
+        page = self.paginate_queryset(followed_users)
+        if page is not None:
+            serializer = UserSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+        serializer = UserSerializer(followed_users, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        url_path='subscribe',
+        permission_classes=[IsAuthenticated]
+    )
+    def subscribe(self, request, id=None):
+        user = request.user
+        author = get_object_or_404(User, pk=id)
+
+        if user == author:
+            return Response(
+                {'detail': 'You can not follow yourself.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if FollowUser.objects.filter(user=user, author=author).exists():
+            return Response(
+                {'detail': 'You are already following this user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        FollowUser.objects.create(user=user, author=author)
+        return Response(
+            {'detail': f'You are now following {author.username}.'},
+            status=status.HTTP_201_CREATED
+        )
+
+    @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated])
+    def unsubscribe(self, request, id=None):
+        user = request.user
+        author = get_object_or_404(User, pk=id)
+
+        follow = FollowUser.objects.filter(user=user, author=author).first()
+        if not follow:
+            return Response(
+                {'detail': 'You are not following this user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        follow.delete()
+        return Response(
+            {'detail': f'You have unfollowed {author.username}.'},
+            status=status.HTTP_204_NO_CONTENT
+        )
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -70,6 +130,24 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = ('name',)
+
+
+class RecipeViewSet(viewsets.ModelViewSet):
+    queryset = Recipe.objects.select_related(
+        'author'
+    ).prefetch_related('ingredients', 'tags')
+    http_method_names = ('get', 'post', 'patch', 'delete',)
+    permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'partial_update']:
+            return RecipeCreateSerializer
+        return RecipeDetailSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
