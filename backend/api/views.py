@@ -165,9 +165,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=[AllowAny]
     )
     def get_link(self, request, pk):
+        recipe = get_object_or_404(Recipe, pk=pk)
+
+        if recipe.short_link:
+            short_link = request.build_absolute_uri(f'/s/{recipe.short_link}/')
+            return Response({'short-link': short_link}, status=status.HTTP_200_OK)
+
         short_link_suffix = generate_short_link()
-        recipe_id = self.kwargs.get('pk')
-        cache.set(short_link_suffix, recipe_id)
+
+        recipe.short_link = short_link_suffix
+        recipe.save()
+
         short_link = request.build_absolute_uri(f'/s/{short_link_suffix}/')
         return Response({'short-link': short_link}, status=status.HTTP_200_OK)
 
@@ -178,15 +186,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=[AllowAny]
     )
     def redirect_short_link(self, request, link_suffix):
-        recipe_id = cache.get(link_suffix)
-
-        if recipe_id:
-            return HttpResponseRedirect(f'/recipes/{recipe_id}')
-        else:
-            return Response(
-                {'error': 'Short link not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        recipe = get_object_or_404(Recipe, short_link=link_suffix)
+        return HttpResponseRedirect(f'/recipes/{recipe.id}')
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
