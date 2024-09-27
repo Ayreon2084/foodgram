@@ -1,12 +1,14 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.http import HttpResponseRedirect
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from djoser import views as djoser_views
-from rest_framework import status, viewsets
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import (
-    IsAuthenticated, IsAuthenticatedOrReadOnly
+    AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
 )
 from rest_framework.response import Response
 
@@ -19,6 +21,7 @@ from .serializers import (
     AvatarSerializer, IngredientSerializer, RecipeCreateSerializer,
     RecipeDetailSerializer, TagSerializer, UserSerializer
 )
+from .utils import generate_short_link
 
 User = get_user_model()
 
@@ -105,7 +108,11 @@ class UserViewSet(djoser_views.UserViewSet):
             status=status.HTTP_201_CREATED
         )
 
-    @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated])
+    @action(
+        detail=True,
+        methods=['delete'],
+        permission_classes=[IsAuthenticated]
+    )
     def unsubscribe(self, request, id=None):
         user = request.user
         author = get_object_or_404(User, pk=id)
@@ -128,8 +135,10 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
-    filter_backends = (DjangoFilterBackend,)
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter,)  # DjangoFilterBackend, 
     filterset_fields = ('name',)
+    search_fields = ('^name',)  # ('^name', 'name__icontains',)
+    max_results = 20
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -148,6 +157,36 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        url_path='get-link',
+        permission_classes=[AllowAny]
+    )
+    def get_link(self, request, pk):
+        short_link_suffix = generate_short_link()
+        recipe_id = self.kwargs.get('pk')
+        cache.set(short_link_suffix, recipe_id)
+        short_link = request.build_absolute_uri(f'/s/{short_link_suffix}/')
+        return Response({'short-link': short_link}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=['get'],
+        url_path='s/(?P<link_suffix>[^/]+)',
+        permission_classes=[AllowAny]
+    )
+    def redirect_short_link(self, request, link_suffix):
+        recipe_id = cache.get(link_suffix)
+
+        if recipe_id:
+            return HttpResponseRedirect(f'/recipes/{recipe_id}')
+        else:
+            return Response(
+                {'error': 'Short link not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
