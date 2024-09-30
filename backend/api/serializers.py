@@ -57,6 +57,49 @@ class AvatarSerializer(serializers.ModelSerializer):
         return representation
 
 
+class FollowUserSerializer(serializers.ModelSerializer):
+    recipes = serializers.SerializerMethodField()
+    recipes_count = serializers.SerializerMethodField()
+    is_subscribed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'email', 'username', 'first_name',
+            'last_name', 'is_subscribed', 'recipes',
+            'recipes_count', 'avatar'
+        )
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if request is None or request.user.is_anonymous:
+            return False
+
+        if request.user == obj:
+            return False
+
+        return FollowUser.objects.filter(user=request.user, author=obj).exists()
+
+    def get_recipes(self, obj):
+        recipes_limit = self.context.get('recipes_limit')
+        recipes = obj.recipes.all()
+
+        if recipes_limit:
+            try:
+                recipes = recipes[:int(recipes_limit)]
+            except ValueError:
+                pass
+
+        return ShortenedRecipeSerializer(
+            recipes,
+            many=True,
+            context=self.context
+        ).data
+
+    def get_recipes_count(self, obj):
+        return obj.recipes.count()
+
+
 class IngredientSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -131,14 +174,26 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                     f'does not exist.'
                 )
 
-            if ingredient['amount'] < 1:
-                raise serializers.ValidationError('Amount can not be fewer than 1.')
+            try:
+                amount_int = int(ingredient['amount'])
+                if amount_int < 1:
+                    raise serializers.ValidationError('Amount can not be fewer than 1.')
+            except (ValueError, TypeError):
+                raise serializers.ValidationError(
+                    f'Ingredient amount must be an integer.'
+                )
 
         return ingredients
 
     def validate_cooking_time(self, cooking_time):
-        if cooking_time < 1:
-            raise serializers.ValidationError('Cooking time must be >= one.')
+        try:
+            cooking_time_int = int(cooking_time)
+            if cooking_time_int < 1:
+                raise serializers.ValidationError('Cooking time must be >= 1.')
+        except (ValueError, TypeError):
+            raise serializers.ValidationError(
+                f'Cooking time must be an integer.'
+            )
 
         return cooking_time
 
@@ -221,14 +276,20 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         tags = obj.tags.all()
         return TagSerializer(tags, many=True).data
 
-    def get_is_favorited(self, obj):
+    def get_is_favorited(self, recipe):
         request = self.context.get('request')
         if request and not request.user.is_anonymous:
-            return request.user.favorites.filter(recipe=obj).exists()
+            return request.user.favorites.filter(recipe=recipe).exists()
         return False
 
-    def get_is_in_shopping_cart(self, obj):
+    def get_is_in_shopping_cart(self, recipe):
         request = self.context.get('request')
         if request and not request.user.is_anonymous:
-            return request.user.shopping_cart.filter(recipe=obj).exists()
+            return request.user.shopping_cart.filter(recipe=recipe).exists()
         return False
+
+
+class ShortenedRecipeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')
