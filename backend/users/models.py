@@ -4,7 +4,6 @@ from django.db import models
 
 from common.constants import LENGTH_150, LENGTH_254
 
-
 class User(AbstractUser):
 
     email = models.EmailField(
