@@ -91,13 +91,13 @@ class UserViewSet(BaseUserViewSetMixin):
                 many=True,
                 context={'request': request, 'recipes_limit': recipes_limit}
             )
-            # serializer.is_valid(raise_exception=True)
+            serializer.is_valid(raise_exception=True)
             return self.get_paginated_response(serializer.data)
         serializer = FollowUserSerializer(
             followed_users,
             many=True,
             context={'request': request, 'recipes_limit': recipes_limit})
-        # serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(
@@ -133,7 +133,7 @@ class UserViewSet(BaseUserViewSetMixin):
             author,
             context={'request': request, 'recipes_limit': recipes_limit}
         )
-        # serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
@@ -238,7 +238,7 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
             recipe,
             context={'request': request}
         )
-        # serializer.is_valud(raise_exception=True)
+        serializer.is_valud(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
@@ -275,7 +275,7 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
         ShoppingCart.objects.create(user=user, recipe=recipe)
 
         serializer = ShortenedRecipeSerializer(recipe)
-        # serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @shopping_cart.mapping.delete
