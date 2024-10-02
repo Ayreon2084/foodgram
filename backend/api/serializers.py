@@ -1,10 +1,7 @@
 from django.contrib.auth import get_user_model
 from drf_base64.fields import Base64ImageField
+from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
 from rest_framework import serializers
-
-from recipes.models import (
-    Ingredient, IngredientRecipe, Recipe, Tag
-)
 from users.models import FollowUser
 
 User = get_user_model()
@@ -35,7 +32,9 @@ class UserSerializer(serializers.ModelSerializer):
         if request.user == obj:
             return False
 
-        return FollowUser.objects.filter(user=request.user, author=obj).exists()
+        return FollowUser.objects.filter(
+            user=request.user, author=obj
+        ).exists()
 
 
 class AvatarSerializer(serializers.ModelSerializer):
@@ -78,7 +77,9 @@ class FollowUserSerializer(serializers.ModelSerializer):
         if request.user == obj:
             return False
 
-        return FollowUser.objects.filter(user=request.user, author=obj).exists()
+        return FollowUser.objects.filter(
+            user=request.user, author=obj
+        ).exists()
 
     def get_recipes(self, obj):
         recipes_limit = self.context.get('recipes_limit')
@@ -115,8 +116,12 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class RecipeCreateSerializer(serializers.ModelSerializer):
-    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True, write_only=True)
-    ingredients = serializers.ListField(child=serializers.DictField(), write_only=True)
+    tags = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), many=True, write_only=True
+    )
+    ingredients = serializers.ListField(
+        child=serializers.DictField(), write_only=True
+    )
     cooking_time = serializers.IntegerField()
     image = Base64ImageField()
 
@@ -171,16 +176,18 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             if not Ingredient.objects.filter(id=ingredient['id']).exists():
                 raise serializers.ValidationError(
                     f'Ingredient with {ingredient["id"]} id '
-                    f'does not exist.'
+                    'does not exist.'
                 )
 
             try:
                 amount_int = int(ingredient['amount'])
                 if amount_int < 1:
-                    raise serializers.ValidationError('Amount can not be fewer than 1.')
+                    raise serializers.ValidationError(
+                        'Amount can not be fewer than 1.'
+                    )
             except (ValueError, TypeError):
                 raise serializers.ValidationError(
-                    f'Ingredient amount must be an integer.'
+                    'Ingredient amount must be an integer.'
                 )
 
         return ingredients
@@ -192,7 +199,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Cooking time must be >= 1.')
         except (ValueError, TypeError):
             raise serializers.ValidationError(
-                f'Cooking time must be an integer.'
+                'Cooking time must be an integer.'
             )
 
         return cooking_time
@@ -260,7 +267,7 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
 
     def get_ingredients(self, obj):
         """Return ingredients with amount in the response."""
-        ingredients = obj.ingredient_recipe.all()
+        ingredients = obj.ingredient_recipe.select_related('ingredient')
         return [
             {
                 'id': ingredient.ingredient.id,
