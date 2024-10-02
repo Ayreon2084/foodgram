@@ -18,6 +18,10 @@ from rest_framework.response import Response
 from users.models import FollowUser
 
 from .filters import IngredientsSearchFilter, RecipeFilter
+from .mixins import (
+    BaseRecipeViewSetMixin, BaseUserViewSetMixin,
+    TagIngredientViewSetMixin
+)
 from .pagination import PageLimitPagination
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (AvatarSerializer, FollowUserSerializer,
@@ -29,7 +33,7 @@ from .utils import generate_short_link  # generate_shopping_cart_content
 User = get_user_model()
 
 
-class UserViewSet(djoser_views.UserViewSet):
+class UserViewSet(BaseUserViewSetMixin):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
@@ -87,11 +91,13 @@ class UserViewSet(djoser_views.UserViewSet):
                 many=True,
                 context={'request': request, 'recipes_limit': recipes_limit}
             )
+            # serializer.is_valid(raise_exception=True)
             return self.get_paginated_response(serializer.data)
         serializer = FollowUserSerializer(
             followed_users,
             many=True,
             context={'request': request, 'recipes_limit': recipes_limit})
+        # serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(
@@ -110,10 +116,7 @@ class UserViewSet(djoser_views.UserViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if FollowUser.objects.filter(
-            user=user,
-            author=author
-        ).exists():
+        if self.check_subscription(user, author):
             return Response(
                 {'detail': 'You have already followed this user.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -130,6 +133,7 @@ class UserViewSet(djoser_views.UserViewSet):
             author,
             context={'request': request, 'recipes_limit': recipes_limit}
         )
+        # serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
@@ -137,10 +141,7 @@ class UserViewSet(djoser_views.UserViewSet):
         user = self.request.user
         author = get_object_or_404(User, pk=id)
 
-        if not FollowUser.objects.filter(
-            user=user,
-            author=author
-        ).exists():
+        if not self.check_subscription(user, author):
             return Response(
                 {'detail': 'You have not followed this user.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -151,24 +152,23 @@ class UserViewSet(djoser_views.UserViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
+class IngredientViewSet(TagIngredientViewSetMixin):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    pagination_class = None
     filter_backends = (IngredientsSearchFilter, filters.SearchFilter,)
     search_fields = ('name',)
     max_results = 20
 
 
-class RecipeViewSet(viewsets.ModelViewSet):
+class RecipeViewSet(BaseRecipeViewSetMixin):
     queryset = Recipe.objects.prefetch_related(
         'ingredients',
         'tags',
     ).select_related(
         'author'
     )
-    http_method_names = ('get', 'post', 'patch', 'delete',)
     permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    http_method_names = ('get', 'post', 'patch', 'delete',)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
@@ -224,10 +224,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         user = self.request.user
         recipe = get_object_or_404(Recipe, pk=pk)
 
-        if FavoriteRecipe.objects.filter(
-            user=user,
-            recipe=recipe
-        ).exists():
+        if self.check_favorite_recipe(user, recipe):
             return Response(
                 {'detail': 'You have already followed this recipe.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -241,6 +238,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             recipe,
             context={'request': request}
         )
+        # serializer.is_valud(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
@@ -248,10 +246,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         user = self.request.user
         recipe = get_object_or_404(Recipe, pk=pk)
 
-        if not FavoriteRecipe.objects.filter(
-            user=user,
-            recipe=recipe
-        ).exists():
+        if not self.check_favorite_recipe(user, recipe):
             return Response(
                 {'detail': 'You have not followed this recipe.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -271,10 +266,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         user = request.user
         recipe = get_object_or_404(Recipe, pk=pk)
 
-        if ShoppingCart.objects.filter(
-            user=user,
-            recipe=recipe
-        ).exists():
+        if self.check_shopping_cart(user, recipe):
             return Response(
                 {'detail': 'This recipe is already in shopping cart.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -283,6 +275,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ShoppingCart.objects.create(user=user, recipe=recipe)
 
         serializer = ShortenedRecipeSerializer(recipe)
+        # serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @shopping_cart.mapping.delete
@@ -290,15 +283,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         user = self.request.user
         recipe = get_object_or_404(Recipe, pk=pk)
 
-        if not (shopping_cart_item := ShoppingCart.objects.filter(
-            user=user,
-            recipe=recipe
-        )).exists():
+        if not self.check_shopping_cart(user, recipe):
             return Response(
                 {'detail': 'This recipe is not in shopping cart.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        shopping_cart_item = get_object_or_404(
+            ShoppingCart, user=user, recipe=recipe
+        )
         shopping_cart_item.delete()
         return Response(
             {'detail': 'Recipe removed from shopping cart.'},
@@ -361,7 +354,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return response
 
 
-class TagViewSet(viewsets.ReadOnlyModelViewSet):
+class TagViewSet(TagIngredientViewSetMixin):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    pagination_class = None
