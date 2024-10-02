@@ -99,6 +99,13 @@ class FollowUserSerializer(serializers.ModelSerializer):
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()
+    
+    def is_valid_subscription(self, user, author):
+        if user == author:
+            raise serializers.ValidationError('You cannot subscribe to yourself.')
+        if FollowUser.objects.filter(user=user, author=author).exists():
+            raise serializers.ValidationError('You have already followed this user.')
+        return True
 
 
 class IngredientSerializer(serializers.ModelSerializer):

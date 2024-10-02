@@ -48,14 +48,12 @@ class UserViewSet(BaseUserViewSetMixin):
     @action(
         detail=False,
         url_path='me/avatar',
-        permission_classes=[IsAuthenticated],
         methods=['put'],
+        permission_classes=[IsAuthenticated]
     )
     def avatar(self, request):
-        user = request.user
-
         serializer = AvatarSerializer(
-            user,
+            request.user,
             data=request.data,
             context={'request': request}
         )
@@ -66,9 +64,8 @@ class UserViewSet(BaseUserViewSetMixin):
 
     @avatar.mapping.delete
     def delete_avatar(self, request):
-        user = request.user
-        user.avatar = None
-        user.save()
+        request.user.avatar = None
+        request.user.save()
         return Response(
             {'detail': 'Avatar has been deleted.'},
             status=status.HTTP_204_NO_CONTENT
@@ -78,27 +75,22 @@ class UserViewSet(BaseUserViewSetMixin):
         detail=False,
         methods=['get'],
         url_path='subscriptions',
-        permission_classes=[IsAuthenticated],
+        permission_classes=[IsAuthenticated]
     )
     def subscriptions(self, request):
         followed_users = User.objects.filter(followed__user=request.user)
         page = self.paginate_queryset(followed_users)
         recipes_limit = request.query_params.get('recipes_limit')
 
-        if page is not None:
-            serializer = FollowUserSerializer(
-                page,
-                many=True,
-                context={'request': request, 'recipes_limit': recipes_limit}
-            )
-            serializer.is_valid(raise_exception=True)
-            return self.get_paginated_response(serializer.data)
         serializer = FollowUserSerializer(
-            followed_users,
+            page or followed_users,
             many=True,
-            context={'request': request, 'recipes_limit': recipes_limit})
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            context={'request': request, 'recipes_limit': recipes_limit}
+        )
+        return (
+            self.get_paginated_response(serializer.data)
+            if page else Response(serializer.data, status=status.HTTP_200_OK)
+        )
 
     @action(
         detail=True,
@@ -110,22 +102,22 @@ class UserViewSet(BaseUserViewSetMixin):
         user = self.request.user
         author = get_object_or_404(User, pk=id)
 
-        if user == author:
-            return Response(
-                {'detail': 'You can not be subscribed on yourself.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # if user == author:
+        #     return Response(
+        #         {'detail': 'You can not be subscribed on yourself.'},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
 
-        if self.check_subscription(user, author):
-            return Response(
-                {'detail': 'You have already followed this user.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        FollowUser.objects.create(
-            user=user,
-            author=author
+        # if self.check_subscription(user, author):
+        #     return Response(
+        #         {'detail': 'You have already followed this user.'},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
+        serializer = FollowUserSerializer(
+            context={'request': request}
         )
+        if serializer.is_valid_subscription(user, author):
+            FollowUser.objects.create(user=user, author=author)
 
         recipes_limit = request.query_params.get('recipes_limit')
 
@@ -133,7 +125,6 @@ class UserViewSet(BaseUserViewSetMixin):
             author,
             context={'request': request, 'recipes_limit': recipes_limit}
         )
-        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
@@ -238,7 +229,6 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
             recipe,
             context={'request': request}
         )
-        serializer.is_valud(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @favorite.mapping.delete
@@ -275,7 +265,6 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
         ShoppingCart.objects.create(user=user, recipe=recipe)
 
         serializer = ShortenedRecipeSerializer(recipe)
-        serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @shopping_cart.mapping.delete
