@@ -87,7 +87,8 @@ class FollowUserSerializer(serializers.ModelSerializer):
 
         if recipes_limit:
             try:
-                recipes = recipes[:int(recipes_limit)]
+                recipes_limit = int(recipes_limit)
+                recipes = recipes[:recipes_limit]
             except ValueError:
                 pass
 
@@ -99,7 +100,7 @@ class FollowUserSerializer(serializers.ModelSerializer):
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()
-    
+
     def is_valid_subscription(self, user, author):
         if user == author:
             raise serializers.ValidationError('You cannot subscribe to yourself.')

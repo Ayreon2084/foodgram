@@ -1,3 +1,4 @@
+from common.constants import LENGTH_32, LENGTH_64, LENGTH_128, LENGTH_256
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
@@ -215,5 +216,5 @@ class ShoppingCart(models.Model):
         return (
             f'User {self.user} placed '
             f'recipe {self.recipe} '
-            f'in shopping cart.'
-    )
+            'in shopping cart.'
+        )

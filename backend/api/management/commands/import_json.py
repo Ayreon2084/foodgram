@@ -1,9 +1,8 @@
 import json
 
+from common.enums import FileNames, IngredientFields, TagFields
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-
-from common.enums import FileNames, IngredientFields, TagFields
 from recipes.models import Ingredient, Tag
 
 
@@ -45,23 +44,24 @@ class Command(BaseCommand):
                             measurement_unit=measurement_unit
                         )
                     )
-            
+
             Ingredient.objects.bulk_create(
                 ingredients_to_add,
                 ignore_conflicts=True
             )
-        
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully loaded {len(ingredients_to_add)} ingredients'
+                    f'Successfully loaded {len(ingredients_to_add)} '
+                    'ingredients.'
                 )
             )
 
         except Exception as e:
             raise CommandError(f'Error importing data: {e}')
-        
+
     def import_tags(self, json_file_path, file_name):
-        
+
         try:
             with open(
                 json_file_path / file_name, 'r', encoding='utf-8'
@@ -84,12 +84,12 @@ class Command(BaseCommand):
                             slug=slug
                         )
                     )
-            
+
             Tag.objects.bulk_create(
                 tags_to_add,
                 ignore_conflicts=True
             )
-        
+
             self.stdout.write(
                 self.style.SUCCESS(
                     f'Successfully loaded {len(tags_to_add)} ingredients'

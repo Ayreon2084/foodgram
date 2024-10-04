@@ -1,16 +1,13 @@
-import os
 from tempfile import NamedTemporaryFile
 
+
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect, FileResponse
 from django.shortcuts import get_object_or_404
-from django.utils.encoding import smart_str
-from django.utils.timezone import now
 from django_filters.rest_framework import DjangoFilterBackend
-from djoser import views as djoser_views
 from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
                             Tag)
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import (AllowAny, IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
@@ -28,7 +25,11 @@ from .serializers import (AvatarSerializer, FollowUserSerializer,
                           IngredientSerializer, RecipeCreateSerializer,
                           RecipeDetailSerializer, ShortenedRecipeSerializer,
                           TagSerializer, UserSerializer)
-from .utils import generate_short_link  # generate_shopping_cart_content
+from .utils import (
+    delete_temp_file,
+    get_or_create_short_link,
+    generate_shopping_cart_content
+)
 
 User = get_user_model()
 
@@ -87,10 +88,10 @@ class UserViewSet(BaseUserViewSetMixin):
             many=True,
             context={'request': request, 'recipes_limit': recipes_limit}
         )
-        return (
-            self.get_paginated_response(serializer.data)
-            if page else Response(serializer.data, status=status.HTTP_200_OK)
-        )
+
+        if page is not None:    
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(
         detail=True,
@@ -101,30 +102,13 @@ class UserViewSet(BaseUserViewSetMixin):
     def subscribe(self, request, id):
         user = self.request.user
         author = get_object_or_404(User, pk=id)
-
-        # if user == author:
-        #     return Response(
-        #         {'detail': 'You can not be subscribed on yourself.'},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-
-        # if self.check_subscription(user, author):
-        #     return Response(
-        #         {'detail': 'You have already followed this user.'},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-        serializer = FollowUserSerializer(
-            context={'request': request}
-        )
-        if serializer.is_valid_subscription(user, author):
-            FollowUser.objects.create(user=user, author=author)
-
         recipes_limit = request.query_params.get('recipes_limit')
-
         serializer = FollowUserSerializer(
             author,
             context={'request': request, 'recipes_limit': recipes_limit}
         )
+        if serializer.is_valid_subscription(user, author):
+            FollowUser.objects.create(user=user, author=author)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @subscribe.mapping.delete
@@ -162,6 +146,7 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
     http_method_names = ('get', 'post', 'patch', 'delete',)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
+    pagination_class = PageLimitPagination
 
     def get_serializer_class(self):
         if self.action in ['create', 'partial_update']:
@@ -178,27 +163,19 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
         url_path='get-link',
         permission_classes=[AllowAny]
     )
-    def get_link(self, request, pk):
+    def get_link(self, request, pk=None):
         recipe = get_object_or_404(Recipe, pk=pk)
+        full_short_link = get_or_create_short_link(request, recipe)
 
-        if recipe.short_link:
-            short_link = request.build_absolute_uri(f'/s/{recipe.short_link}/')
-            return Response(
-                {'short-link': short_link}, status=status.HTTP_200_OK
-            )
-
-        short_link_suffix = generate_short_link()
-
-        recipe.short_link = short_link_suffix
-        recipe.save()
-
-        short_link = request.build_absolute_uri(f'/s/{short_link_suffix}/')
-        return Response({'short-link': short_link}, status=status.HTTP_200_OK)
+        return Response(
+            {'short-link': full_short_link},
+            status=status.HTTP_200_OK
+        )
 
     @action(
         detail=False,
         methods=['get'],
-        url_path='s/(?P<link_suffix>[^/]+)',
+        url_path='s/(?P<link_suffix>)',
         permission_classes=[AllowAny]
     )
     def redirect_short_link(self, request, link_suffix):
@@ -299,47 +276,21 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
             user=user
         ).prefetch_related('recipe__ingredients')
 
-        ingredient_totals = {}
+        content = generate_shopping_cart_content(user, shopping_cart_items)
 
-        for item in shopping_cart_items:
-            recipe = item.recipe
-            for ingredient_recipe in recipe.ingredient_recipe.all():
-                ingredient = ingredient_recipe.ingredient
-                key = (ingredient.name, ingredient.measurement_unit)
-                if key in ingredient_totals:
-                    ingredient_totals[key] += ingredient_recipe.amount
-                else:
-                    ingredient_totals[key] = ingredient_recipe.amount
-
-        content_lines = ["# Shopping List\n"]
-        content_lines.append(
-            f"Generated on: {now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        )
-        content_lines.append("![Site Logo](link_to_logo.png)\n")
-
-        for recipe in shopping_cart_items.values_list(
-            'recipe__name', flat=True
-        ).distinct():
-            content_lines.append(f"\n## {recipe}\n")
-
-        content_lines.append("\n### Ingredients\n")
-        for (name, unit), amount in ingredient_totals.items():
-            content_lines.append(f"- [ ] {name} - {amount} {unit}\n")
-
-        with NamedTemporaryFile(delete=False, suffix=".md") as tmp_file:
-            tmp_file.write("\n".join(content_lines).encode('utf-8'))
+        with NamedTemporaryFile(delete=False, suffix=".txt") as tmp_file:
+            tmp_file.write(content.encode('utf-8'))
             tmp_file_path = tmp_file.name
 
-        with open(tmp_file_path, 'rb') as md_file:
-            response = HttpResponse(
-                md_file.read(), content_type='text/markdown'
-            )
-            response['Content-Disposition'] = (
-                f'attachment; filename="shopping_cart_{user.username}.md"'
-            )
+        response = FileResponse(
+            open(tmp_file_path, 'rb'),
+            content_type='text/plain'
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename="shopping_list_{user.username}.txt"'
+        )
 
-        os.remove(tmp_file_path)
-
+        response.close = lambda: delete_temp_file(tmp_file_path)
         return response
 
 

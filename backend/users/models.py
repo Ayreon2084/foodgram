@@ -1,3 +1,4 @@
+from common.constants import LENGTH_150, LENGTH_254
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
