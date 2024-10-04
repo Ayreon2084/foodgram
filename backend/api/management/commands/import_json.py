@@ -11,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         try:
-            json_file_path = settings.BASE_DIR.parent / 'data'
+            json_file_path = settings.BASE_DIR / 'data'
             self.import_ingredients(
                 json_file_path, FileNames.INGREDIENTS.value
             )

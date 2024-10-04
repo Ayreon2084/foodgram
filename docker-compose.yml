@@ -1,0 +1,33 @@
+volumes:
+  foodgram_static:
+  foodgram_media:
+  foodgram_db:
+
+services:
+  backend:
+    container_name: f-back
+    build:
+      context: ./backend
+    volumes:
+      - foodgram_media:/app/media/
+      - foodgram_static:/backend_static/
+      # - ./data/:/data/  # Ensure this path is correctly set; adjust if necessary
+
+  frontend:
+    container_name: f-front
+    build: ./frontend/
+    command: cp -r /app/build/. /frontend_static/
+    volumes:
+      - foodgram_static:/frontend_static/
+
+  nginx:
+    build: ./gateway/
+    # image: nginx:1.25.4-alpine
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - foodgram_static:/static/
+      - foodgram_media:/media/
