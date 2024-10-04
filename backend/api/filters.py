@@ -7,6 +7,7 @@ from django.db import models
 from recipes.models import Recipe
 from rest_framework import filters
 
+from recipes.models import Tag
 from .utils import filter_by_boolean
 
 
@@ -21,7 +22,11 @@ class RecipeFilter(django_filters.FilterSet):
     """
 
     author = django_filters.NumberFilter(field_name="author__id")
-    tags = django_filters.AllValuesMultipleFilter(field_name="tags__slug")
+    tags = django_filters.ModelMultipleChoiceFilter(
+        field_name="tags__slug",
+        to_field_name='slug',
+        queryset=Tag.objects.all()
+    )
     is_favorited = django_filters.CharFilter(
         method='filter_is_favorited'
     )
