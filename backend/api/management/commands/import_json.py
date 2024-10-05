@@ -92,7 +92,7 @@ class Command(BaseCommand):
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully loaded {len(tags_to_add)} ingredients'
+                    f'Successfully loaded {len(tags_to_add)} tags'
                 )
             )
 

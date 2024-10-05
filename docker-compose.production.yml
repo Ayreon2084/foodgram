@@ -12,7 +12,7 @@ services:
 
   backend:
     container_name: foodgram-back
-    build: ./backend/
+    image: ayreon208/foodgram_backend
     env_file: .env
     depends_on:
       - db
@@ -22,14 +22,14 @@ services:
 
   frontend:
     container_name: foodgram-front
-    build: ./frontend/
+    image: ayreon208/foodgram_frontend
     env_file: .env
     command: cp -r /app/build/. /frontend_static/
     volumes:
       - foodgram_static:/frontend_static/
 
   nginx:
-    build: ./gateway/
+    image: ayreon208/foodgram_gateway
     env_file: .env
     depends_on:
       - backend
@@ -38,4 +38,4 @@ services:
       - foodgram_static:/static/
       - foodgram_media:/media/
     ports:
-      - "80:80"
+      - "8000:80"

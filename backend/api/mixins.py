@@ -1,8 +1,5 @@
 from djoser import views as djoser_views
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-
-from .permissions import IsAuthorOrReadOnly 
 
 from recipes.models import FavoriteRecipe, ShoppingCart
 from users.models import FollowUser

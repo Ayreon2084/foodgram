@@ -6,5 +6,5 @@
     {"name": "ужин", "slug": "dinner"},
     {"name": "десерт", "slug": "dessert"},
     {"name": "салат", "slug": "salad"},
-    {"name": "закуска", "slug": "snack"},
+    {"name": "закуска", "slug": "snack"}
 ]
