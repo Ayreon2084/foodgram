@@ -12,7 +12,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         try:
-            json_file_path = settings.BASE_DIR.parent / 'data'
+            json_file_path = settings.BASE_DIR / 'data'
             self.import_ingredients(
                 json_file_path, FileNames.INGREDIENTS.value
             )
@@ -45,23 +45,24 @@ class Command(BaseCommand):
                             measurement_unit=measurement_unit
                         )
                     )
-            
+
             Ingredient.objects.bulk_create(
                 ingredients_to_add,
                 ignore_conflicts=True
             )
-        
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully loaded {len(ingredients_to_add)} ingredients'
+                    f'Successfully loaded {len(ingredients_to_add)} '
+                    'ingredients.'
                 )
             )
 
         except Exception as e:
             raise CommandError(f'Error importing data: {e}')
-        
+
     def import_tags(self, json_file_path, file_name):
-        
+
         try:
             with open(
                 json_file_path / file_name, 'r', encoding='utf-8'
@@ -84,15 +85,15 @@ class Command(BaseCommand):
                             slug=slug
                         )
                     )
-            
+
             Tag.objects.bulk_create(
                 tags_to_add,
                 ignore_conflicts=True
             )
-        
+
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully loaded {len(tags_to_add)} ingredients'
+                    f'Successfully loaded {len(tags_to_add)} tags'
                 )
             )
 

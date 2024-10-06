@@ -4,7 +4,6 @@ from django.db import models
 
 from common.constants import LENGTH_32, LENGTH_64, LENGTH_128, LENGTH_256
 
-
 User = get_user_model()
 
 
@@ -24,7 +23,7 @@ class Tag(models.Model):
                 message=(
                     'Username must contain only alphanumeric characters '
                     'in upper/lowercase, hyphens and underscores.'
-                )
+                ),
             )
         ],
     )
@@ -66,15 +65,13 @@ class Ingredient(models.Model):
 class IngredientRecipe(models.Model):
     recipe = models.ForeignKey(
         'Recipe',
-        verbose_name='What recipes',
+        verbose_name='What recipe',
         on_delete=models.CASCADE,
-        related_name='ingredient_recipe'
     )
     ingredient = models.ForeignKey(
         Ingredient,
         verbose_name='What ingredient',
         on_delete=models.CASCADE,
-        related_name='ingredient_recipe'
     )
     amount = models.PositiveSmallIntegerField(
         verbose_name='Quantity',
@@ -86,6 +83,7 @@ class IngredientRecipe(models.Model):
         verbose_name = 'ingredient in recipe'
         verbose_name_plural = 'Ingredients in recipe'
         ordering = ('recipe', 'ingredient',)
+        default_related_name = 'ingredient_recipe'
         constraints = [
             models.UniqueConstraint(
                 fields=('recipe', 'ingredient',),
@@ -116,7 +114,6 @@ class Recipe(models.Model):
     author = models.ForeignKey(
         User,
         verbose_name='Recipe author',
-        related_name='recipes',
         on_delete=models.SET_NULL,
         null=True
     )
@@ -129,22 +126,93 @@ class Recipe(models.Model):
         Ingredient,
         through=IngredientRecipe,
         verbose_name='Ingredients in recipe',
-        related_name='recipes',
     )
     tags = models.ManyToManyField(
         Tag,
         verbose_name='Tags',
-        related_name='recipes'
     )
     pub_date = models.DateTimeField(
         verbose_name='Publication date',
         auto_now_add=True,
+    )
+    short_link = models.CharField(
+        max_length=10,
+        unique=True,
+        null=True,
+        blank=True
     )
 
     class Meta:
         verbose_name = 'recipe'
         verbose_name_plural = 'Recipes'
         ordering = ('-pub_date',)
+        default_related_name = 'recipes'
 
     def __str__(self):
-        f'Recipe {self.name} from author {self.author.username}.'
+        return f'Recipe {self.name} from author {self.author.username}.'
+
+
+class FavoriteRecipe(models.Model):
+    user = models.ForeignKey(
+        User,
+        verbose_name='Who set as favorite',
+        on_delete=models.CASCADE,
+        related_name='favorites'
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        verbose_name='favorited_by',
+        on_delete=models.CASCADE,
+        related_name='favorited_by'
+    )
+
+    class Meta:
+        verbose_name = 'favorite recipe'
+        verbose_name_plural = 'Favorite recipes'
+        ordering = ('recipe',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'recipe',),
+                name='unique_favorite_recipe',
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f'User {self.user} set '
+            f'recipe {self.recipe} '
+            f'as favorite.'
+        )
+
+
+class ShoppingCart(models.Model):
+    user = models.ForeignKey(
+        User,
+        verbose_name='Who add to shopping cart',
+        on_delete=models.CASCADE,
+        related_name='shopping_cart'
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        verbose_name='In shopping cart',
+        on_delete=models.CASCADE,
+        related_name='in_shopping_cart_of'
+    )
+
+    class Meta:
+        verbose_name = 'shopping cart'
+        verbose_name_plural = 'Shopping carts'
+        ordering = ('recipe',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('user', 'recipe',),
+                name='unique_shopping_cart',
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f'User {self.user} placed '
+            f'recipe {self.recipe} '
+            'in shopping cart.'
+        )

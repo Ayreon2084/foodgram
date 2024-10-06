@@ -1,0 +1,10 @@
+[
+    {"name": "суп", "slug": "soup"},
+    {"name": "завтрак", "slug": "breakfast"},
+    {"name": "выпечка", "slug": "pastry"},
+    {"name": "обед", "slug": "lunch"},
+    {"name": "ужин", "slug": "dinner"},
+    {"name": "десерт", "slug": "dessert"},
+    {"name": "салат", "slug": "salad"},
+    {"name": "закуска", "slug": "snack"}
+]
