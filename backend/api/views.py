@@ -176,7 +176,7 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
     )
     def redirect_short_link(self, request, link_suffix):
         recipe = get_object_or_404(Recipe, short_link=link_suffix)
-        url = f'{settings.ABSOLUTE_DOMAIN}/recipes/{recipe.id}/'
+        url = f'{settings.ABSOLUTE_DOMAIN}/recipes/{recipe.id}'
         return redirect(url)
 
     @action(
