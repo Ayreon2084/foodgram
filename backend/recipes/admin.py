@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db import models
 
 from .models import (FavoriteRecipe, Ingredient, IngredientRecipe, Recipe,
                      ShoppingCart, Tag)
@@ -16,7 +17,8 @@ class IngredientRecipeInline(admin.TabularInline):
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
     list_display = (
-        'name', 'author', 'pub_date', 'cooking_time', 'short_link',
+        'name', 'author', 'pub_date',
+        'cooking_time', 'short_link', 'favorite_count',
     )
     search_fields = ('name', 'author__username',)
     list_filter = ('author', 'tags',)
@@ -28,7 +30,12 @@ class RecipeAdmin(admin.ModelAdmin):
             'author'
         ).prefetch_related(
             'ingredients', 'tags'
+        ).annotate(
+            favorite_count=models.Count('favorited_by')
         )
+
+    def favorite_count(self, obj):
+        return obj.favorite_count
 
 
 @admin.register(FavoriteRecipe)
