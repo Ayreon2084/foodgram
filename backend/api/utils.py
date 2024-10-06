@@ -27,7 +27,7 @@ def generate_shopping_cart_content(user, shopping_cart_items):
     for recipe in shopping_cart_items.values_list(
         'recipe__name', flat=True
     ).distinct():
-        content_lines.append(f"\nRecipe: {recipe}\n")
+        content_lines.append(f"\nRecipe: {recipe}")
 
     content_lines.append("\nIngredients:\n")
     for (name, unit), amount in ingredient_totals.items():
