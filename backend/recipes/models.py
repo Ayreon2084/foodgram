@@ -1,10 +1,8 @@
-from common.constants import LENGTH_32, LENGTH_64, LENGTH_128, LENGTH_256
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, RegexValidator
 from django.db import models
 
 from common.constants import LENGTH_32, LENGTH_64, LENGTH_128, LENGTH_256
-
 
 User = get_user_model()
 

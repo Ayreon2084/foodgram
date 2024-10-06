@@ -2,12 +2,12 @@ import operator
 from functools import reduce
 
 import django_filters
-from common.enums import RecipeRelatedFields
 from django.db import models
-from recipes.models import Recipe
 from rest_framework import filters
 
-from recipes.models import Tag
+from common.enums import RecipeRelatedFields
+from recipes.models import Recipe, Tag
+
 from .utils import filter_by_boolean
 
 
@@ -102,7 +102,7 @@ class IngredientsSearchFilter(filters.SearchFilter):
 
     2. **Multi-Word Search**:
        - Input: `?search=app j`
-       - Query: This will return ingredients containing both 'app' and 
+       - Query: This will return ingredients containing both 'app' and
          'j'.
          For instance, 'apple jam', 'apple juice' etc.
 
@@ -123,7 +123,7 @@ class IngredientsSearchFilter(filters.SearchFilter):
             view (View): The view that is handling the request.
 
         Returns:
-            QuerySet: The filtered queryset containing ingredients that 
+            QuerySet: The filtered queryset containing ingredients that
             match the search terms.
         """
         search_fields = self.get_search_fields(view, request)

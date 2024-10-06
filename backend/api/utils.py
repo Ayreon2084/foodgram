@@ -2,13 +2,9 @@ import os
 import random
 import string
 
-from django.http import HttpResponse
-from django.utils.encoding import smart_str
 from django.utils.timezone import now
-from rest_framework.response import Response
 
 from common.enums import BooleanFields
-from recipes.models import ShoppingCart
 
 
 def generate_shopping_cart_content(user, shopping_cart_items):
@@ -67,9 +63,3 @@ def filter_by_boolean(queryset, user, value, related_field, is_authenticated):
     if BooleanFields.is_false(value) and is_authenticated:
         return queryset.exclude(**{f"{related_field}__user": user})
     return queryset
-
-
-def handle_duplicate_check(self, check_func, error_message, status_code):
-    if check_func():
-        return Response({'detail': error_message}, status=status_code)
-    return None

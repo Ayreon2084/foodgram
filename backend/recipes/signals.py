@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_delete, sender=Recipe)
 def delete_avatar_on_user_delete(sender, instance, **kwargs):
-    """
-    Deletes file with recipe image if
-    recipe is being deleted.
-    """
+    """Delete file with recipe image if recipe is being deleted."""
     logger.info(f'Deleting image for recipe: {instance.name}')
     if instance.image:
         if os.path.isfile(instance.image.path):
@@ -25,7 +22,9 @@ def delete_avatar_on_user_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=Recipe)
 def delete_old_avatar_on_change(sender, instance, **kwargs):
     """
-    Deletes file with recipe image if:
+    Delete file with recipe image.
+
+    Cases:
     - current recipe image is being deleted;
     - current recipe image is being changed.
     """

@@ -1,35 +1,31 @@
 from tempfile import NamedTemporaryFile
 
-
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.http import HttpResponseRedirect, FileResponse
-from django.shortcuts import get_object_or_404
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
-from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
-                            Tag)
 from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import (AllowAny, IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
+
+from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
+                            Tag)
 from users.models import FollowUser
 
 from .filters import IngredientsSearchFilter, RecipeFilter
-from .mixins import (
-    BaseRecipeViewSetMixin, BaseUserViewSetMixin,
-    TagIngredientViewSetMixin
-)
+from .mixins import (BaseRecipeViewSetMixin, BaseUserViewSetMixin,
+                     TagIngredientViewSetMixin)
 from .pagination import PageLimitPagination
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (AvatarSerializer, FollowUserSerializer,
                           IngredientSerializer, RecipeCreateSerializer,
                           RecipeDetailSerializer, ShortenedRecipeSerializer,
                           TagSerializer, UserSerializer)
-from .utils import (
-    delete_temp_file,
-    get_or_create_short_link,
-    generate_shopping_cart_content
-)
+from .utils import (delete_temp_file, generate_shopping_cart_content,
+                    get_or_create_short_link)
 
 User = get_user_model()
 
@@ -89,7 +85,7 @@ class UserViewSet(BaseUserViewSetMixin):
             context={'request': request, 'recipes_limit': recipes_limit}
         )
 
-        if page is not None:    
+        if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -180,7 +176,8 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
     )
     def redirect_short_link(self, request, link_suffix):
         recipe = get_object_or_404(Recipe, short_link=link_suffix)
-        return HttpResponseRedirect(f'/recipes/{recipe.id}')
+        url = f'{settings.ABSOLUTE_DOMAIN}/recipes/{recipe.id}/'
+        return redirect(url)
 
     @action(
         detail=True,

@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from drf_base64.fields import Base64ImageField
-from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
 from rest_framework import serializers
+
+from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
 from users.models import FollowUser
 
 User = get_user_model()
@@ -103,9 +104,13 @@ class FollowUserSerializer(serializers.ModelSerializer):
 
     def is_valid_subscription(self, user, author):
         if user == author:
-            raise serializers.ValidationError('You cannot subscribe to yourself.')
+            raise serializers.ValidationError(
+                'You cannot subscribe to yourself.'
+            )
         if FollowUser.objects.filter(user=user, author=author).exists():
-            raise serializers.ValidationError('You have already followed this user.')
+            raise serializers.ValidationError(
+                'You have already followed this user.'
+            )
         return True
 
 

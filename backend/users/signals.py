@@ -4,16 +4,12 @@ from django.contrib.auth import get_user_model
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
-
 User = get_user_model()
 
 
 @receiver(post_delete, sender=User)
 def delete_avatar_on_user_delete(sender, instance, **kwargs):
-    """
-    Deletes image file with avatar if
-    user is being deleted.
-    """
+    """Delete image file with avatar if user is being deleted."""
     if instance.avatar:
         if os.path.isfile(instance.avatar.path):
             instance.avatar.delete(save=False)
@@ -22,7 +18,9 @@ def delete_avatar_on_user_delete(sender, instance, **kwargs):
 @receiver(pre_save, sender=User)
 def delete_old_avatar_on_change(sender, instance, **kwargs):
     """
-    Deletes image file with avatar if:
+    Delete image file with avatar.
+
+    Cases:
     - user deletes current avatar;
     - user changes current avatar.
     """

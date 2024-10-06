@@ -1,8 +1,9 @@
 import json
 
-from common.enums import FileNames, IngredientFields, TagFields
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+
+from common.enums import FileNames, IngredientFields, TagFields
 from recipes.models import Ingredient, Tag
 
 
