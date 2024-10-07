@@ -3,7 +3,6 @@ from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
 
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
-from users.models import FollowUser
 
 User = get_user_model()
 
@@ -24,18 +23,15 @@ class UserSerializer(serializers.ModelSerializer):
             'is_subscribed'
         )
 
-    def get_is_subscribed(self, obj):
-
+    def get_is_subscribed(self, author):
         request = self.context.get('request')
         if request is None or request.user.is_anonymous:
             return False
 
-        if request.user == obj:
+        if request.user == author:
             return False
 
-        return FollowUser.objects.filter(
-            user=request.user, author=obj
-        ).exists()
+        return request.user.follower.filter(author=author).exists()
 
 
 class AvatarSerializer(serializers.ModelSerializer):
@@ -70,17 +66,16 @@ class FollowUserSerializer(serializers.ModelSerializer):
             'recipes_count', 'avatar'
         )
 
-    def get_is_subscribed(self, obj):
+    def get_is_subscribed(self, author):
         request = self.context.get('request')
         if request is None or request.user.is_anonymous:
             return False
 
-        if request.user == obj:
+        if request.user == author:
             return False
 
-        return FollowUser.objects.filter(
-            user=request.user, author=obj
-        ).exists()
+        return request.user.follower.filter(author=author).exists()
+
 
     def get_recipes(self, obj):
         recipes_limit = self.context.get('recipes_limit')
@@ -107,7 +102,7 @@ class FollowUserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'You cannot subscribe to yourself.'
             )
-        if FollowUser.objects.filter(user=user, author=author).exists():
+        if user.follower.filter(author=author).exists():
             raise serializers.ValidationError(
                 'You have already followed this user.'
             )
@@ -121,6 +116,15 @@ class IngredientSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'measurement_unit')
 
 
+class IngredientInRecipeSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()  
+    amount = serializers.IntegerField()
+
+    class Meta:
+        model = IngredientRecipe
+        fields = ['id', 'amount']
+
+
 class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -130,11 +134,9 @@ class TagSerializer(serializers.ModelSerializer):
 
 class RecipeCreateSerializer(serializers.ModelSerializer):
     tags = serializers.PrimaryKeyRelatedField(
-        queryset=Tag.objects.all(), many=True, write_only=True
+        queryset=Tag.objects.all(), many=True
     )
-    ingredients = serializers.ListField(
-        child=serializers.DictField(), write_only=True
-    )
+    ingredients = IngredientInRecipeSerializer(many=True)
     cooking_time = serializers.IntegerField()
     image = Base64ImageField()
 
