@@ -275,7 +275,7 @@ class RecipeViewSet(BaseRecipeViewSetMixin):
 
         content = generate_shopping_cart_content(user, shopping_cart_items)
 
-        with NamedTemporaryFile(delete=False, suffix=".txt") as tmp_file:
+        with NamedTemporaryFile(delete=False, suffix='.txt') as tmp_file:
             tmp_file.write(content.encode('utf-8'))
             tmp_file_path = tmp_file.name
 

@@ -21,9 +21,9 @@ class RecipeFilter(django_filters.FilterSet):
     - whether they are in the user's shopping cart.
     """
 
-    author = django_filters.NumberFilter(field_name="author__id")
+    author = django_filters.NumberFilter(field_name='author__id')
     tags = django_filters.ModelMultipleChoiceFilter(
-        field_name="tags__slug",
+        field_name='tags__slug',
         to_field_name='slug',
         queryset=Tag.objects.all()
     )
@@ -133,7 +133,7 @@ class IngredientsSearchFilter(filters.SearchFilter):
             return queryset
 
         orm_lookups = [
-            f"{search_field}__icontains"
+            f'{search_field}__icontains'
             for search_field in search_fields
         ]
 

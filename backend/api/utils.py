@@ -20,20 +20,20 @@ def generate_shopping_cart_content(user, shopping_cart_items):
             )
 
     content_lines = [
-        "Shopping List\n",
-        f"Generated on: {now().strftime('%Y-%m-%d %H:%M:%S')}\n",
+        'Shopping List\n',
+        f'Generated on: {now().strftime("%Y-%m-%d %H:%M:%S")}\n',
     ]
 
     for recipe in shopping_cart_items.values_list(
         'recipe__name', flat=True
     ).distinct():
-        content_lines.append(f"\nRecipe: {recipe}")
+        content_lines.append(f'\nRecipe: {recipe}')
 
-    content_lines.append("\nIngredients:\n")
+    content_lines.append('\nIngredients:\n')
     for (name, unit), amount in ingredient_totals.items():
-        content_lines.append(f"- {name} - {amount} {unit}\n")
+        content_lines.append(f'- {name} - {amount} {unit}\n')
 
-    return "\n".join(content_lines)
+    return '\n'.join(content_lines)
 
 
 def delete_temp_file(file_path):
@@ -59,7 +59,7 @@ def get_or_create_short_link(request, recipe):
 
 def filter_by_boolean(queryset, user, value, related_field, is_authenticated):
     if BooleanFields.is_true(value) and is_authenticated:
-        return queryset.filter(**{f"{related_field}__user": user})
+        return queryset.filter(**{f'{related_field}__user': user})
     if BooleanFields.is_false(value) and is_authenticated:
-        return queryset.exclude(**{f"{related_field}__user": user})
+        return queryset.exclude(**{f'{related_field}__user': user})
     return queryset
