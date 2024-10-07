@@ -1,5 +1,5 @@
 from djoser import views as djoser_views
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
 
 from recipes.models import FavoriteRecipe, ShoppingCart
 from users.models import FollowUser
@@ -28,3 +28,25 @@ class BaseUserViewSetMixin(djoser_views.UserViewSet):
 class TagIngredientViewSetMixin(viewsets.ReadOnlyModelViewSet):
 
     pagination_class = None
+
+
+class SubscriptionMixin:
+
+    def is_subscribed(self, user, author):
+        request = self.context.get('request')
+        if request is None or user.is_anonymous:
+            return False
+        if user == author:
+            return False
+        return user.follower.filter(author=author).exists()
+
+    def is_valid_subscription(self, user, author):
+        if user == author:
+            raise serializers.ValidationError(
+                'You cannot subscribe to yourself.'
+            )
+        if user.follower.filter(author=author).exists():
+            raise serializers.ValidationError(
+                'You have already followed this user.'
+            )
+        return True

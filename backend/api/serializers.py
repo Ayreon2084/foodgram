@@ -2,12 +2,15 @@ from django.contrib.auth import get_user_model
 from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
 
+from common.constants import MAX_VALUE, MIN_VALUE
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
+
+from .mixins import SubscriptionMixin
 
 User = get_user_model()
 
 
-class UserSerializer(serializers.ModelSerializer):
+class UserSerializer(SubscriptionMixin, serializers.ModelSerializer):
 
     is_subscribed = serializers.SerializerMethodField()
 
@@ -24,14 +27,8 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, author):
-        request = self.context.get('request')
-        if request is None or request.user.is_anonymous:
-            return False
-
-        if request.user == author:
-            return False
-
-        return request.user.follower.filter(author=author).exists()
+        user = self.context['request'].user
+        return self.is_subscribed(user, author)
 
 
 class AvatarSerializer(serializers.ModelSerializer):
@@ -53,7 +50,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         return representation
 
 
-class FollowUserSerializer(serializers.ModelSerializer):
+class FollowUserSerializer(SubscriptionMixin, serializers.ModelSerializer):
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
     is_subscribed = serializers.SerializerMethodField()
@@ -67,15 +64,8 @@ class FollowUserSerializer(serializers.ModelSerializer):
         )
 
     def get_is_subscribed(self, author):
-        request = self.context.get('request')
-        if request is None or request.user.is_anonymous:
-            return False
-
-        if request.user == author:
-            return False
-
-        return request.user.follower.filter(author=author).exists()
-
+        user = self.context['request'].user
+        return self.is_subscribed(user, author)
 
     def get_recipes(self, obj):
         recipes_limit = self.context.get('recipes_limit')
@@ -97,16 +87,11 @@ class FollowUserSerializer(serializers.ModelSerializer):
     def get_recipes_count(self, obj):
         return obj.recipes.count()
 
-    def is_valid_subscription(self, user, author):
-        if user == author:
-            raise serializers.ValidationError(
-                'You cannot subscribe to yourself.'
-            )
-        if user.follower.filter(author=author).exists():
-            raise serializers.ValidationError(
-                'You have already followed this user.'
-            )
-        return True
+    def validate(self, data):
+        user = self.context['request'].user
+        author = data.get('author')
+        self.is_valid_subscription(user, author)
+        return data
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -117,8 +102,11 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()  
-    amount = serializers.IntegerField()
+    id = serializers.IntegerField()
+    amount = serializers.IntegerField(
+        min_value=MIN_VALUE,
+        max_value=MAX_VALUE
+    )
 
     class Meta:
         model = IngredientRecipe
@@ -137,7 +125,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(), many=True
     )
     ingredients = IngredientInRecipeSerializer(many=True)
-    cooking_time = serializers.IntegerField()
+    cooking_time = serializers.IntegerField(
+        min_value=MIN_VALUE,
+        max_value=MAX_VALUE
+    )
     image = Base64ImageField()
 
     class Meta:
@@ -178,10 +169,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         return tags
 
     def validate_ingredients(self, ingredients):
-        check_duplicates = list(set([
+        check_duplicates = set([
             (ingredient['id'], ingredient['amount'])
             for ingredient in ingredients
-        ]))
+        ])
         if len(check_duplicates) != len(ingredients):
             raise serializers.ValidationError(
                 'You must not repeat the same ingredients.'
@@ -194,30 +185,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                     'does not exist.'
                 )
 
-            try:
-                amount_int = int(ingredient['amount'])
-                if amount_int < 1:
-                    raise serializers.ValidationError(
-                        'Amount can not be fewer than 1.'
-                    )
-            except (ValueError, TypeError):
-                raise serializers.ValidationError(
-                    'Ingredient amount must be an integer.'
-                )
-
         return ingredients
-
-    def validate_cooking_time(self, cooking_time):
-        try:
-            cooking_time_int = int(cooking_time)
-            if cooking_time_int < 1:
-                raise serializers.ValidationError('Cooking time must be >= 1.')
-        except (ValueError, TypeError):
-            raise serializers.ValidationError(
-                'Cooking time must be an integer.'
-            )
-
-        return cooking_time
 
     def create(self, validated_data):
         tags = validated_data.pop('tags')
