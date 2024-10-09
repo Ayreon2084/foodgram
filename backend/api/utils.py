@@ -4,7 +4,8 @@ import string
 
 from django.utils.timezone import now
 
-from common.enums import BooleanFields
+from common.enums import BooleanFields, IngredientFields
+from recipes.models import IngredientRecipe
 
 
 def generate_shopping_cart_content(user, shopping_cart_items):
@@ -63,3 +64,15 @@ def filter_by_boolean(queryset, user, value, related_field, is_authenticated):
     if BooleanFields.is_false(value) and is_authenticated:
         return queryset.exclude(**{f'{related_field}__user': user})
     return queryset
+
+
+def bulk_create_ingredients(recipe, ingredients):
+    ingredient_instances = [
+        IngredientRecipe(
+            recipe=recipe,
+            ingredient_id=ingredient[IngredientFields.ID.value],
+            amount=ingredient[IngredientFields.AMOUNT.value]
+        )
+        for ingredient in ingredients
+    ]
+    IngredientRecipe.objects.bulk_create(ingredient_instances)

@@ -7,7 +7,6 @@ from rest_framework import filters
 
 from common.enums import RecipeRelatedFields
 from recipes.models import Recipe, Tag
-
 from .utils import filter_by_boolean
 
 

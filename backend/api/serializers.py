@@ -3,9 +3,11 @@ from drf_base64.fields import Base64ImageField
 from rest_framework import serializers
 
 from common.constants import MAX_VALUE, MIN_VALUE
+from common.enums import (FollowUserFields, IngredientFields, ObjectNames,
+                          RecipeFields, UserFields)
 from recipes.models import Ingredient, IngredientRecipe, Recipe, Tag
-
 from .mixins import SubscriptionMixin
+from .utils import bulk_create_ingredients
 
 User = get_user_model()
 
@@ -45,7 +47,7 @@ class AvatarSerializer(serializers.ModelSerializer):
 
         if instance.avatar and request:
             avatar_url = request.build_absolute_uri(instance.avatar.url)
-            representation['avatar'] = avatar_url
+            representation[UserFields.AVATAR.value] = avatar_url
             return representation
         return representation
 
@@ -89,7 +91,7 @@ class FollowUserSerializer(SubscriptionMixin, serializers.ModelSerializer):
 
     def validate(self, data):
         user = self.context['request'].user
-        author = data.get('author')
+        author = data.get(FollowUserFields.AUTHOR.value)
         self.is_valid_subscription(user, author)
         return data
 
@@ -170,8 +172,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
     def validate_ingredients(self, ingredients):
         check_duplicates = set([
-            (ingredient['id'], ingredient['amount'])
-            for ingredient in ingredients
+            (
+                ingredient[IngredientFields.ID.value],
+                ingredient[IngredientFields.AMOUNT.value]
+            ) for ingredient in ingredients
         ])
         if len(check_duplicates) != len(ingredients):
             raise serializers.ValidationError(
@@ -179,38 +183,41 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             )
 
         for ingredient in ingredients:
-            if not Ingredient.objects.filter(id=ingredient['id']).exists():
+            if not Ingredient.objects.filter(
+                id=ingredient[IngredientFields.ID.value]
+            ).exists():
                 raise serializers.ValidationError(
-                    f'Ingredient with {ingredient["id"]} id '
-                    'does not exist.'
+                    f'Ingredient with {ingredient[IngredientFields.ID.value]} '
+                    'id does not exist.'
                 )
 
         return ingredients
 
     def create(self, validated_data):
-        tags = validated_data.pop('tags')
-        ingredients = validated_data.pop('ingredients')
+        tags = validated_data.pop(ObjectNames.TAGS.value)
+        ingredients = validated_data.pop(ObjectNames.INGREDIENTS.value)
         recipe = Recipe.objects.create(**validated_data)
 
         recipe.tags.set(tags)
 
-        for ingredient in ingredients:
-            IngredientRecipe.objects.create(
-                recipe=recipe,
-                ingredient_id=ingredient['id'],
-                amount=ingredient['amount']
-            )
+        bulk_create_ingredients(recipe, ingredients)
 
         return recipe
 
     def update(self, recipe, validated_data):
-        tags = validated_data.get('tags')
-        ingredients = validated_data.get('ingredients')
-        recipe.image = validated_data.get('image', recipe.image)
-        recipe.name = validated_data.get('name', recipe.name)
-        recipe.text = validated_data.get('text', recipe.text)
+        tags = validated_data.get(ObjectNames.TAGS.value)
+        ingredients = validated_data.get(ObjectNames.INGREDIENTS.value)
+        recipe.image = validated_data.get(
+            RecipeFields.IMAGE.value, recipe.image
+        )
+        recipe.name = validated_data.get(
+            RecipeFields.NAME.value, recipe.name
+        )
+        recipe.text = validated_data.get(
+            RecipeFields.TEXT.value, recipe.text
+        )
         recipe.cooking_time = validated_data.get(
-            'cooking_time', recipe.cooking_time
+            RecipeFields.COOKING_TIME.value, recipe.cooking_time
         )
 
         if tags:
@@ -219,12 +226,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
         if ingredients:
             recipe.ingredients.clear()
-            for ingredient in ingredients:
-                IngredientRecipe.objects.create(
-                    recipe=recipe,
-                    ingredient_id=ingredient['id'],
-                    amount=ingredient['amount']
-                )
+            bulk_create_ingredients(recipe, ingredients)
 
         recipe.save()
         return recipe
@@ -253,10 +255,11 @@ class RecipeDetailSerializer(serializers.ModelSerializer):
         ingredients = obj.ingredient_recipe.select_related('ingredient')
         return [
             {
-                'id': ingredient.ingredient.id,
-                'name': ingredient.ingredient.name,
-                'measurement_unit': ingredient.ingredient.measurement_unit,
-                'amount': ingredient.amount
+                IngredientFields.ID.value: ingredient.ingredient.id,
+                IngredientFields.NAME.value: ingredient.ingredient.name,
+                IngredientFields.MEASUREMENT_UNIT.value:
+                    ingredient.ingredient.measurement_unit,
+                IngredientFields.AMOUNT.value: ingredient.amount
             }
             for ingredient in ingredients
         ]

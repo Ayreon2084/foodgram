@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from recipes.models import (FavoriteRecipe, Ingredient, Recipe, ShoppingCart,
                             Tag)
 from users.models import FollowUser
-
 from .filters import IngredientsSearchFilter, RecipeFilter
 from .mixins import (BaseRecipeViewSetMixin, BaseUserViewSetMixin,
                      TagIngredientViewSetMixin)

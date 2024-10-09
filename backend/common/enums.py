@@ -7,8 +7,26 @@ class FileNames(Enum):
 
 
 class IngredientFields(Enum):
+    ID = 'id'
     NAME = 'name'
     MEASUREMENT_UNIT = 'measurement_unit'
+    AMOUNT = 'amount'
+
+
+class RecipeFields(Enum):
+    AUTHOR = 'author'
+    IMAGE = 'image'
+    NAME = 'name'
+    TEXT = 'text'
+    COOKING_TIME = 'cooking_time'
+
+
+class FollowUserFields(Enum):
+    AUTHOR = 'author'
+
+
+class UserFields(Enum):
+    AVATAR = 'avatar'
 
 
 class TagFields(Enum):
@@ -32,3 +50,8 @@ class BooleanFields(Enum):
 class RecipeRelatedFields(Enum):
     IS_FAVORITED = 'favorited_by'
     IS_IN_SHOPPING_CART = 'in_shopping_cart_of'
+
+
+class ObjectNames(Enum):
+    INGREDIENTS = 'ingredients'
+    TAGS = 'tags'
